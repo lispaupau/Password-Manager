@@ -1,7 +1,7 @@
 import tkinter
 from tkinter import messagebox
 import random
-import pyperclip
+import json
 
 
 # ---------------------------- PASSWORD GENERATOR ------------------------------- #
@@ -26,7 +26,6 @@ def generate_password():
     gen_password = ''.join(password_list)
     pass_entry.delete(0, tkinter.END)
     pass_entry.insert(0, gen_password)
-    pyperclip.copy(gen_password)
 
 
 # ---------------------------- SAVE PASSWORD ------------------------------- #
@@ -34,17 +33,59 @@ def save():
     website = website_entry.get()
     email = email_entry.get()
     password = pass_entry.get()
+    new_data = {
+        website: {
+            'email': email,
+            'password': password,
+        }
+    }
 
     if len(website) == 0 or len(password) == 0:
         messagebox.showwarning(title='Oops', message='Please don`t leave any fields empty!')
     else:
-        is_ok = messagebox.askokcancel(title=website, message=f'These are the details entered: \nEmail: {email}\n'
-                                                              f'Password: {password}\nIs it okay to save?')
-        if is_ok:
-            with open('data.txt', 'a') as f:
-                f.write(f'{website} | {email} | {password}\n')
-                website_entry.delete(0, tkinter.END)
-                pass_entry.delete(0, tkinter.END)
+        try:
+            with open('data.json', 'r') as data_file:
+                data = json.load(data_file)
+        except (FileNotFoundError, json.JSONDecodeError):
+            data = {}
+        data.update(new_data)
+
+        with open('data.json', 'w') as data_file:
+            json.dump(data, data_file, indent=4)
+
+            website_entry.delete(0, tkinter.END)
+            pass_entry.delete(0, tkinter.END)
+            website_entry.focus()
+
+
+# ---------------------------- FIND PASSWORD ------------------------------- #
+def find_password():
+    website = website_entry.get()
+    try:
+        with open('data.json', 'r') as data_file:
+            data = json.load(data_file)
+        messagebox.showinfo(title=website, message=f'Email: {data[website]["email"]}\n'
+                                                   f'Password: {data[website]["password"]}')
+    except KeyError:
+        messagebox.showwarning(title='Error.', message='This website was not found in the database.')
+    except FileNotFoundError:
+        messagebox.showwarning(title='Error', message='Database is empty or missing.')
+
+    finally:
+        website_entry.delete(0, tkinter.END)
+        pass_entry.delete(0, tkinter.END)
+        website_entry.focus()
+
+
+# ---------------------------- SHOW SAVED WEBSITES ------------------------------- #
+def show_saved_websites():
+    try:
+        with open('data.json', 'r') as data_file:
+            data = json.load(data_file)
+            list_websites = list(data.keys())
+            messagebox.showinfo(title='Saved Websites', message='\n'.join(list_websites))
+    except FileNotFoundError:
+        messagebox.showwarning(title='Error', message='Database is empty or missing.')
 
 
 # ---------------------------- UI SETUP ------------------------------- #
@@ -66,19 +107,23 @@ pass_label = tkinter.Label(text='Password:')
 pass_label.grid(column=0, row=3)
 
 # Entries
-website_entry = tkinter.Entry(width=35)
-website_entry.grid(column=1, row=1, columnspan=2)
+website_entry = tkinter.Entry(width=21)
+website_entry.grid(column=1, row=1, columnspan=1)
 website_entry.focus()
-email_entry = tkinter.Entry(width=35)
-email_entry.grid(column=1, row=2, columnspan=2)
+email_entry = tkinter.Entry(width=21)
+email_entry.grid(column=1, row=2, columnspan=1)
 email_entry.insert(0, 'pndao@inbox.ru')
 pass_entry = tkinter.Entry(width=21)
 pass_entry.grid(column=1, row=3)
 
 # Buttons
-gen_pass_button = tkinter.Button(text='Generate Password', padx=2, command=generate_password)
+gen_pass_button = tkinter.Button(text='Generate Password', width=13, command=generate_password)
 gen_pass_button.grid(column=2, row=3)
 add_button = tkinter.Button(text='Add', width=36, command=save)
 add_button.grid(column=1, row=4, columnspan=2)
+search_button = tkinter.Button(text='Search', width=13, command=find_password)
+search_button.grid(column=2, row=1)
+show_websites = tkinter.Button(text='Saved Websites', command=show_saved_websites)
+show_websites.grid(column=2, row=2)
 
 window.mainloop()
